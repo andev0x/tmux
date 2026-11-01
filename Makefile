@@ -275,7 +275,33 @@ check:
 	fi; \
 	tmux -L tmux-check kill-server 2>/dev/null || true; \
 	rm -f "$$err"; \
-	echo "   ok tmux.conf"
+	echo "   ok tmux.conf"; \
+	echo ">> tmux.conf (obsidian theme)"; \
+	obs=$$(mktemp); \
+	sed 's/^%hidden TMUX_THEME=.*/%hidden TMUX_THEME=obsidian/' \
+	  "$(REPO_DIR)/tmux.conf" >"$$obs"; \
+	err=$$(mktemp); \
+	if ! tmux -L tmux-check-obsidian -f "$$obs" new-session -d -s check 2>"$$err"; then \
+	  cat "$$err"; \
+	  tmux -L tmux-check-obsidian kill-server 2>/dev/null || true; \
+	  rm -f "$$obs" "$$err"; \
+	  exit 1; \
+	fi; \
+	if [ -s "$$err" ]; then \
+	  cat "$$err"; \
+	  tmux -L tmux-check-obsidian kill-server 2>/dev/null || true; \
+	  rm -f "$$obs" "$$err"; \
+	  exit 1; \
+	fi; \
+	if ! tmux -L tmux-check-obsidian show -g status-style | grep -q 'bg=#0a0d0b'; then \
+	  echo "!! obsidian theme did not apply"; \
+	  tmux -L tmux-check-obsidian kill-server 2>/dev/null || true; \
+	  rm -f "$$obs" "$$err"; \
+	  exit 1; \
+	fi; \
+	tmux -L tmux-check-obsidian kill-server 2>/dev/null || true; \
+	rm -f "$$obs" "$$err"; \
+	echo "   ok tmux.conf (obsidian)"
 
 # -----------------------------------------------------------------------------
 # reload
