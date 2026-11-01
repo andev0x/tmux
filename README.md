@@ -55,7 +55,21 @@ is the dark-black / green variant.
 | **Tokyo Night** | `tokyonight` *(default)* | Slate-blue base, cyan focus, amber prefix |
 | **Obsidian Grove** | `obsidian` | Obsidian-black base, a single forest-green ramp |
 
-Pick one at the top of the `THEME SELECTION` section in `tmux.conf`:
+Switch with the bundled `make` target:
+
+```bash
+make theme                    # read-only: show the active palette
+make obsidian                 # switch: obsidian black + forest green
+make tokyonight               # switch: back to the default
+make theme THEME=obsidian     # explicit equivalent of `make obsidian`
+```
+
+`make theme` on its own only reports the selection — it never edits the file.
+The switching targets rewrite the selector in `tmux.conf`, then reload the
+running tmux server (or tell you the config will apply on the next start).
+
+If you prefer editing the file yourself, the selector is at the top of
+section 3:
 
 ```tmux
 %hidden TMUX_THEME=tokyonight   # or: obsidian
@@ -140,6 +154,9 @@ make install DEPS=0        # skip package installation
 make install FONTS=0       # skip the Nerd Font
 make install EXTRAS=1      # also install lazygit + yazi
 make check                 # validate without changing anything
+make theme                 # show the active palette (read-only)
+make obsidian              # switch to the green/black palette
+make tokyonight            # switch back to the default palette
 make clean                 # drop the telemetry cache
 make uninstall             # remove the symlinks (plugins stay)
 ```
