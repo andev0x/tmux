@@ -127,7 +127,7 @@ four steps of the same forest green. Text is a desaturated sage-white
 ## Installation
 
 ```bash
-git clone <repo-url> ~/.config/tmux
+git clone https://github.com/andev0x/tmux.git ~/.config/tmux
 cd ~/.config/tmux
 make install
 ```
