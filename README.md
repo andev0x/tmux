@@ -6,8 +6,12 @@ A minimalist, low-cognitive-load tmux setup for high-intensity terminal work
 The design rules are simple:
 
 - **No visual noise** — no powerline pills, badges, gradients or double clocks.
-- **Micro-contrast** — one dark base, one muted slate, and accents that only
-  ever mean something: **cyan** = focus, **amber** = prefix armed.
+- **Two palettes, one layout** — the original **Tokyo Night** scheme is the
+  default; **Obsidian Grove** is an optional near-black / forest-green variant.
+- **Luminance over decoration** — layers are separated by brightness, not
+  borders, boxes or saturation.
+- **Accents that mean something** — one focus accent, one alert accent, and
+  quieter steps for telemetry.
 - **Telemetry that never blocks** — every status-bar script is memoised and
   sampled out of band, so the UI stays responsive even on a slow repo.
 
@@ -19,29 +23,86 @@ The design rules are simple:
 
 ## Status bar
 
-| Region | Meaning |
-| --- | --- |
-| `󰖲 work` on `#3d59a1` | Current session (`#S`) |
-| `󰘳 PREFIX` on amber | Shown **only while the prefix key is held** (`client_prefix`) |
-| `1:vim` dim | Inactive window (`#I:#W`) |
-| `2:zsh` cyan on slate, bold | Active window — the only high-contrast element |
-| `󰍉 [Z]` purple | The active window's pane is zoomed (`window_zoomed_flag`) |
-| `󰻠 18% 󰍛 59%` teal | CPU and memory (`scripts/cpu.sh`) |
-| `󰊢 main ●3` blue | Branch and dirty/untracked entries (`scripts/git-read.sh`) |
-| `󰚰 ↑1 ↓2` purple | Divergence from upstream (`scripts/git-update.sh`) |
-| `14:32` dim | Single clock (`%H:%M`) |
+Every region is described by a **token**, not a hex value, because the bar
+ships with two palettes (see [Themes](#themes)).
 
-Separators are `│` in `#414868`, the quietest colour in the palette.
+| Region | Token | Meaning |
+| --- | --- | --- |
+| `󰖲 work` | `session` bed, `work` text | Current session (`#S`) |
+| `󰘳 PREFIX` | `prefix` bed, `base` text | Shown **only while the prefix key is held** (`client_prefix`) |
+| `1:vim` | `dim` | Inactive window (`#I:#W`) |
+| `2:zsh` | `focus` on `slate`, bold | Active window — the only high-contrast element |
+| `󰍉 [Z]` | `badge` | The active window's pane is zoomed (`window_zoomed_flag`) |
+| `󰻠 18% 󰍛 59%` | `data` | CPU and memory (`scripts/cpu.sh`) |
+| `󰊢 main ●3` | `work` | Branch and dirty/untracked entries (`scripts/git-read.sh`) |
+| `󰚰 ↑1 ↓2` | `badge` | Divergence from upstream (`scripts/git-update.sh`) |
+| `14:32` | `dim` | Single clock (`%H:%M`) |
 
-Panes follow the same logic: inactive borders are `#292e42` (almost invisible),
-the focused pane gets a single crisp `#7aa2f7` border.
+Separators are `│` in `sep`, the quietest colour in either palette.
+
+Panes follow the same logic: inactive borders are `slate` (almost invisible),
+the focused pane gets a single crisp `work` border.
+
+---
+
+## Themes
+
+Two palettes share the same layout. Tokyo Night is the default; Obsidian Grove
+is the dark-black / green variant.
+
+| Theme | Selector value | Character |
+| --- | --- | --- |
+| **Tokyo Night** | `tokyonight` *(default)* | Slate-blue base, cyan focus, amber prefix |
+| **Obsidian Grove** | `obsidian` | Obsidian-black base, a single forest-green ramp |
+
+Pick one at the top of the `THEME SELECTION` section in `tmux.conf`:
+
+```tmux
+%hidden TMUX_THEME=tokyonight   # or: obsidian
+```
+
+Then reload with `prefix + r`. Any value other than `obsidian` falls back to
+Tokyo Night, so the config always renders. The selector and every palette token
+are declared `%hidden`, so none of them are exported into your shell (or the
+Neovim/LSP processes it starts).
+
+### Colour tokens
+
+Both themes define the same fourteen tokens; every style in the config reads
+those tokens and never a raw colour.
+
+| Token | Tokyo Night | Obsidian Grove | Role |
+| --- | --- | --- | --- |
+| `base` | `#16161e` | `#0a0d0b` | status bar and structural background |
+| `surface` | `#1a1b26` | `#101612` | elevated surface (messages) |
+| `slate` | `#292e42` | `#1e2a22` | active window bed, inactive borders |
+| `session` | `#3d59a1` | `#263b2e` | session block bed |
+| `dim` | `#565f89` | `#5f6f63` | inactive windows, clock |
+| `text` | `#c0caf5` | `#c6d4c9` | readable body text |
+| `focus` | `#7dcfff` | `#8fc7a0` | active window, message and mode highlight |
+| `work` | `#7aa2f7` | `#8fc7a0` | session text, git workspace, popups, focused border |
+| `notice` | `#7dcfff` | `#a9d9ba` | transient message highlight |
+| `alert` | `#e0af68` | `#a9d9ba` | activity and bell |
+| `badge` | `#bb9af7` | `#7a9b87` | zoom indicator, upstream divergence |
+| `data` | `#73daca` | `#4f8b6b` | CPU and memory telemetry |
+| `prefix` | `#e0af68` | `#8fc7a0` | prefix-armed block bed |
+| `sep` | `#414868` | `#34423a` | vertical separators |
+
+`text` is a reference token: the status line does not consume it, but it is kept
+in the set so the palette stays complete and consistent.
+
+The Obsidian ramp is deliberately narrow: `base → surface → slate → session`
+are four steps of the same near-black, and `data → badge → focus → notice` are
+four steps of the same forest green. Text is a desaturated sage-white
+(`#c6d4c9`) rather than pure white, so it does not glare.
 
 ---
 
 ## Requirements
 
 - **tmux 3.8+** (developed and verified against 3.8; popup styles `-s`/`-S`,
-  `-b rounded` and `terminal-features` need a modern tmux)
+  `-b rounded`, `terminal-features` and the config `%if`/`%hidden` theme
+  selector need a modern tmux)
 - **bash** (`/bin/bash` 3.2 on macOS is enough), plus `awk`, `git` and `make`
 - A **Nerd Font** for the glyphs (`󰖲 󰘳 󰍉 󰊢 󰚰 󰻠 󰍛`) — this config was built
   with `JetBrainsMono Nerd Font`
@@ -265,39 +326,53 @@ All four popups share the same surface treatment, so they read as part of the
 terminal rather than a grey overlay:
 
 ```tmux
-display-popup -E -b rounded -s "bg=#16161e,fg=#7aa2f7" -S "fg=#414868" ...
+display-popup -E -b rounded -s "bg=${base},fg=${work}" -S "fg=${sep}" ...
 ```
 
 | Flag | Effect |
 | --- | --- |
-| `-s "bg=#16161e,fg=#7aa2f7"` | Popup body uses the terminal base colour |
+| `-s "bg=${base},fg=${work}"` | Popup body uses the theme base and work colour |
 | `-b rounded` | Rounded border corners |
-| `-S "fg=#414868"` | Dim, palette-matched border |
+| `-S "fg=${sep}"` | Dim, palette-matched border |
 
 ---
 
 ## Customization
 
-### Palette
+### Themes
 
-All colours are declared once at the top of the `PALETTE` section and expanded
-into every option, so changing a hue is a one-line edit:
+A theme is a `%if` branch in section 3 of `tmux.conf` that assigns the fourteen
+[colour tokens](#colour-tokens). Every style below it reads tokens, never raw
+colours, so one branch repaints the whole UI consistently.
+
+To add a third theme, insert an `%elif` before the `%else` fallback and define
+all fourteen tokens:
 
 ```tmux
-base="#16161e"
-slate="#292e42"
-cyan="#7dcfff"
-blue="#7aa2f7"
-amber="#e0af68"
-purple="#bb9af7"
-teal="#73daca"
+%if "#{==:$TMUX_THEME,obsidian}"
+# ...
+%elif "#{==:$TMUX_THEME,solarized}"
+base="#002b36"
+surface="#073642"
+# ...all remaining tokens...
+%else
+# tokyonight (default)
+%endif
 ```
+
+Then select it with `%hidden TMUX_THEME=solarized`. Keep the tokens complete: an
+undefined token expands to nothing and that one style falls back to tmux's
+built-in default. Because the tokens are hidden rather than exported, every
+reload starts from a clean slate.
+
+The default branch stays Tokyo Night, so an unknown or misspelled value always
+renders a complete, known-good bar.
 
 ### Status bar
 
 - Windows: `window-status-format` (inactive) and
-  `window-status-current-format` (active). The active tab uses a soft slate bed
-  with bold cyan text — **no underline**.
+  `window-status-current-format` (active). The active tab uses a raised slate bed
+  with bold focus text — **no underline**.
 - If you are on tmux 3.8+: its default `window-status-current-style` is
   `underscore`, which is why the config sets it to `default`. Removing the
   format attribute alone is not enough.
@@ -352,6 +427,12 @@ Install `lazygit` / `yazi`; the popup prints a message and waits for a key.
 **The active tab has an underline.**
 Make sure `window-status-current-style` is `default` (see Customization above).
 
+**The theme did not change.**
+The selector is read while the config is parsed, so reload with `prefix + r`
+(or `tmux source-file ~/.config/tmux/tmux.conf`). Check the spelling too:
+`obsidian` is the only non-default value, it is case-sensitive, and it must be
+unquoted. Anything else falls back to Tokyo Night.
+
 **Status bar feels slow.**
 Time a script and raise the TTLs if needed:
 
@@ -366,11 +447,13 @@ often samples are taken.
 
 ## Design notes
 
-- **One accent per state.** Cyan means "this is focused", amber means "the
-  prefix is armed". Nothing else competes for attention.
+- **One accent per state.** The focus accent marks the active window, the alert
+  accent is reserved for transient state, and the deeper data/badge steps are
+  ambient telemetry. Nothing else competes for attention. Both themes follow the
+  same token roles, so switching palettes never changes the information design.
 - **No duplicated identity.** Hostname, username and a second clock were
   deliberately removed; the bar only shows live operational data.
 - **`escape-time 0`** keeps Neovim's modal input immediate.
 - **`extended-keys on`** with `csi-u` gives Neovim access to modified keys.
 - **Monitor activity without stealing the command line**: windows flag activity
-  in amber, but `visual-activity`/`visual-bell` are off.
+  in the alert accent, but `visual-activity`/`visual-bell` are off.
