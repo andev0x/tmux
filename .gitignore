@@ -1,0 +1,5 @@
+.commit_suggest_history.json
+plugins/
+
+# ohgo runtime state
+.ohgo/
