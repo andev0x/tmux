@@ -22,7 +22,7 @@ FONTS  ?= 1
 EXTRAS ?= 0
 
 .DEFAULT_GOAL := help
-.PHONY: help install deps fonts extras link tpm check reload clean uninstall
+.PHONY: help install deps fonts extras link tpm check reload theme obsidian tokyonight clean uninstall
 
 # -----------------------------------------------------------------------------
 # help
@@ -31,7 +31,7 @@ help:
 	@printf '%s\n' \
 	  'tmux — Command Control Center' \
 	  '' \
-	  'Usage: make <target> [DEPS=0] [FONTS=0] [EXTRAS=1]' \
+	  'Usage: make <target> [THEME=tokyonight|obsidian] [DEPS=0] [FONTS=0] [EXTRAS=1]' \
 	  '' \
 	  '  install     Full setup: dependencies, font, symlinks, TPM plugins,' \
 	  '              config validation and a live reload when tmux is running' \
@@ -40,15 +40,23 @@ help:
 	  '  extras      Install optional tools (lazygit, yazi)' \
 	  '  link        Point ~/.tmux.conf and ~/.config/tmux at this checkout' \
 	  '  tpm         Clone TPM and install the configured plugins' \
-	  '  check       Validate script syntax, telemetry output and tmux.conf' \
+	  '  check       Validate script syntax, telemetry output and both themes' \
 	  '  reload      Reload tmux.conf in the running server (if any)' \
+	  '  theme       Show the current palette, or switch with THEME=<name>' \
+	  '  obsidian    Shorthand for: make theme THEME=obsidian' \
+	  '  tokyonight  Shorthand for: make theme THEME=tokyonight (default)' \
 	  '  clean       Drop the telemetry cache' \
 	  '  uninstall   Remove the symlinks and the telemetry cache' \
+	  '' \
+	  'Themes: tokyonight (default), obsidian' \
 	  '' \
 	  'Examples:' \
 	  '  make install                 # recommended first run' \
 	  '  make install DEPS=0          # binaries already installed' \
-	  '  make install FONTS=0 EXTRAS=1'
+	  '  make install FONTS=0 EXTRAS=1' \
+	  '  make theme                   # show the active theme' \
+	  '  make theme THEME=obsidian    # switch palette and reload' \
+	  '  make obsidian                # same thing, shorter'
 
 # -----------------------------------------------------------------------------
 # install — ordered sub-makes: works with -j and keeps steps independent
@@ -259,24 +267,38 @@ check:
 	bash scripts/git-read.sh "$(REPO_DIR)" >/dev/null; \
 	bash scripts/git-update.sh "$(REPO_DIR)" >/dev/null; \
 	printf '   ok %s\n' "$$out"; \
-	echo ">> tmux.conf"; \
+	echo ">> tmux.conf (tokyonight theme)"; \
 	if ! command -v tmux >/dev/null 2>&1; then \
 	  echo "!! tmux is not installed"; exit 1; \
 	fi; \
+	tmux -L tmux-check kill-server 2>/dev/null || true; \
+	tok=$$(mktemp); \
+	sed 's/^%hidden TMUX_THEME=.*/%hidden TMUX_THEME=tokyonight/' \
+	  "$(REPO_DIR)/tmux.conf" >"$$tok"; \
 	err=$$(mktemp); \
-	if ! tmux -L tmux-check -f "$(REPO_DIR)/tmux.conf" new-session -d -s check 2>"$$err"; then \
-	  cat "$$err"; rm -f "$$err"; exit 1; \
+	if ! tmux -L tmux-check -f "$$tok" new-session -d -s check 2>"$$err"; then \
+	  cat "$$err"; \
+	  tmux -L tmux-check kill-server 2>/dev/null || true; \
+	  rm -f "$$tok" "$$err"; \
+	  exit 1; \
 	fi; \
 	if [ -s "$$err" ]; then \
 	  cat "$$err"; \
 	  tmux -L tmux-check kill-server 2>/dev/null || true; \
-	  rm -f "$$err"; \
+	  rm -f "$$tok" "$$err"; \
+	  exit 1; \
+	fi; \
+	if ! tmux -L tmux-check show -g status-style | grep -q 'bg=#16161e'; then \
+	  echo "!! tokyonight theme did not apply"; \
+	  tmux -L tmux-check kill-server 2>/dev/null || true; \
+	  rm -f "$$tok" "$$err"; \
 	  exit 1; \
 	fi; \
 	tmux -L tmux-check kill-server 2>/dev/null || true; \
-	rm -f "$$err"; \
-	echo "   ok tmux.conf"; \
+	rm -f "$$tok" "$$err"; \
+	echo "   ok tmux.conf (tokyonight)"; \
 	echo ">> tmux.conf (obsidian theme)"; \
+	tmux -L tmux-check-obsidian kill-server 2>/dev/null || true; \
 	obs=$$(mktemp); \
 	sed 's/^%hidden TMUX_THEME=.*/%hidden TMUX_THEME=obsidian/' \
 	  "$(REPO_DIR)/tmux.conf" >"$$obs"; \
@@ -313,6 +335,44 @@ reload:
 	else \
 	  echo ">> No tmux server running; the config loads on next start"; \
 	fi
+
+# -----------------------------------------------------------------------------
+# theme — switch between the bundled palettes (tokyonight | obsidian)
+# -----------------------------------------------------------------------------
+theme:
+	@set -eu; \
+	conf="$(REPO_DIR)/tmux.conf"; \
+	theme="$(THEME)"; \
+	if [ -z "$$theme" ]; then \
+	  current=$$(sed -n 's/^%hidden TMUX_THEME=//p' "$$conf" | head -1); \
+	  printf '>> Current theme: %s\n' "$$current"; \
+	  printf '   Available:     tokyonight (default), obsidian\n'; \
+	  printf '   This target only reports; it does not switch.\n'; \
+	  printf '   Switch with:   make theme THEME=obsidian   (or: make obsidian)\n'; \
+	  exit 0; \
+	fi; \
+	case "$$theme" in \
+	  tokyonight|obsidian) ;; \
+	  *) printf "!! Unknown theme '%s' (expected tokyonight or obsidian)\n" "$$theme"; exit 1 ;; \
+	esac; \
+	tmp="$$conf.theme.$$$$"; \
+	trap 'rm -f "$$tmp"' EXIT INT TERM; \
+	sed 's/^%hidden TMUX_THEME=.*/%hidden TMUX_THEME='"$$theme"'/' "$$conf" >"$$tmp"; \
+	if ! grep -q "^%hidden TMUX_THEME=$$theme" "$$tmp"; then \
+	  echo "!! Could not update the theme selector in $$conf"; \
+	  exit 1; \
+	fi; \
+	mv -f "$$tmp" "$$conf"; \
+	trap - EXIT INT TERM; \
+	printf '>> Theme set to %s\n' "$$theme"; \
+	$(MAKE) --no-print-directory reload
+
+# Shortcuts for the two bundled palettes.
+obsidian:
+	@$(MAKE) --no-print-directory theme THEME=obsidian
+
+tokyonight:
+	@$(MAKE) --no-print-directory theme THEME=tokyonight
 
 # -----------------------------------------------------------------------------
 # clean / uninstall
